@@ -66,6 +66,11 @@ FRAZIONI = {
     "Spigno Saturnia Inferiore": "Spigno Saturnia", "Spigno Saturnia Superiore": "Spigno Saturnia",
     "Campodivivo": "Spigno Saturnia", "Stazione di Itri": "Itri", "Stazione Fossanova": "Priverno",
 }
+# correzioni ai nomi delle linee e alle destinazioni delle corse (route_long_name, trip_headsign) del GTFS
+CORREZIONI = {
+    "Via Pellizzari": "Via Pezzellari",  # linea A di Spigno Saturnia, come nella linea A1
+}
+
 # fermate della rete urbana di Terracina (codice TE_…): il nome ha solo la via ("EUROPA/LUCANI")
 COMUNE_DA_CODICE = {"TE_": "Terracina"}
 COMUNE_MAX_KM = 3       # altre fermate senza comune nel nome: comune della fermata più vicina entro 3 km
@@ -128,6 +133,12 @@ def natural(code):
 
 
 # indirizzo in coda al nome: ", 04023 Formia LT, Italia", " 04023 Penitro LT Italia", " LT, Italia"
+def correggi(testo):
+    for errato, giusto in CORREZIONI.items():
+        testo = testo.replace(errato, giusto)
+    return testo
+
+
 def numero(short):
     """Numero della linea senza la sigla del comune: 'B_Fr' -> 'B', '1/B_Msb' -> '1/B' (le linee sono già
     raggruppate per comune; il codice completo resta l'identificativo della linea)."""
@@ -328,6 +339,10 @@ def build(zpath, inizio="00000000", fine="99999999"):
     routes = read(zf, "routes.txt")
     stops = {s["stop_id"]: s for s in read(zf, "stops.txt")}
     trips = read(zf, "trips.txt")
+    for r in routes:
+        r["route_long_name"] = correggi(r["route_long_name"])
+    for t in trips:
+        t["trip_headsign"] = correggi(t["trip_headsign"])
 
     st_by_trip = defaultdict(list)
     for r in read(zf, "stop_times.txt"):

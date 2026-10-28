@@ -22,6 +22,10 @@ Grafica e funzioni sono le stesse dei siti delle altre UdR (base: UdR 5).
 - **Vicino a me** e **Bus in viaggio** (posizioni stimate dagli orari programmati, non in tempo reale).
 - Orari sempre nel formato **hh:mm**: gli orari del GTFS con i secondi sono troncati al minuto.
 
+**Correzioni ai nomi**: errori nei nomi delle linee e nelle destinazioni delle corse del GTFS si correggono in
+`CORREZIONI` in testa a `build_data.py` (es. linea A di Spigno Saturnia: «Via Pellizzari» → «Via Pezzellari»);
+valgono anche per i GTFS caricati in seguito.
+
 **Fermate principali**: sono quelle che il GTFS indica con orario garantito (`timepoint` = 1), più i capolinea.
 Se un GTFS futuro non le distinguesse, lo script usa le regole delle altre UdR (prima fermata in ogni comune,
 nodi serviti da almeno 4 altre linee, una fermata almeno ogni 5 minuti di viaggio).
