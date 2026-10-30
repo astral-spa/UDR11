@@ -1690,6 +1690,8 @@ $("#giorno").addEventListener("change", e => {
 <script>
 // statistiche visite (GoatCounter, senza cookie): solo sul sito online, non aprendo il file dal computer
 if (/^https?:$/.test(location.protocol)) {
+  // una sola riga per sito: /UDR11/, /udr11/index.html, /UDR11/?fbclid=… contano tutti come "/UDR11/"
+  window.goatcounter = { path: () => "/" + (location.pathname.split("/")[1] || "").replace(/\.html?$/i, "").toUpperCase() + "/" };
   const gc = document.createElement("script");
   gc.async = true;
   gc.src = "https://gc.zgo.at/count.js";

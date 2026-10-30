@@ -39,8 +39,9 @@ indica il comune prendono quello della fermata più vicina (entro 3 km). Grafie 
 `build_data.py` (`LOCALITA`, `NOMI_COMUNI`, `FRAZIONI`, `COMUNE_DA_CODICE`).
 
 **Statistiche visite**: il sito online conta le visite con GoatCounter (account `andreaantonini`, senza cookie);
-i dati si vedono su https://andreaantonini.goatcounter.com, alla pagina `/UDR11/`. Aprendo il file dal computer
-non si conta nulla. Il codice è in fondo a `template.html`.
+i dati si vedono su https://andreaantonini.goatcounter.com, alla pagina `/UDR11/`. Tutte le varianti dell'indirizzo
+(con `index.html`, con parametri come `?fbclid=…`, maiuscole o minuscole) contano come un'unica pagina.
+Aprendo il file dal computer non si conta nulla. Il codice è in fondo a `template.html`.
 
 ## File
 
