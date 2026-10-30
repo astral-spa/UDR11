@@ -1687,5 +1687,15 @@ $("#giorno").addEventListener("change", e => {
   apply(location.hash.replace(/^#linea-/, ""));
 })();
 </script>
+<script>
+// statistiche visite (GoatCounter, senza cookie): solo sul sito online, non aprendo il file dal computer
+if (/^https?:$/.test(location.protocol)) {
+  const gc = document.createElement("script");
+  gc.async = true;
+  gc.src = "https://gc.zgo.at/count.js";
+  gc.dataset.goatcounter = "https://andreaantonini.goatcounter.com/count";
+  document.body.appendChild(gc);
+}
+</script>
 </body>
 </html>

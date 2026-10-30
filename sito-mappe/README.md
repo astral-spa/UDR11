@@ -38,6 +38,10 @@ Le fermate della rete urbana di Terracina (codice `TE_…`) sono assegnate a Ter
 indica il comune prendono quello della fermata più vicina (entro 3 km). Grafie dei comuni e frazioni sono in testa a
 `build_data.py` (`LOCALITA`, `NOMI_COMUNI`, `FRAZIONI`, `COMUNE_DA_CODICE`).
 
+**Statistiche visite**: il sito online conta le visite con GoatCounter (account `andreaantonini`, senza cookie);
+i dati si vedono su https://andreaantonini.goatcounter.com, alla pagina `/UDR11/`. Aprendo il file dal computer
+non si conta nulla. Il codice è in fondo a `template.html`.
+
 ## File
 
 - `template.html`: grafica e funzioni del sito, con i segnaposto per i dati.
