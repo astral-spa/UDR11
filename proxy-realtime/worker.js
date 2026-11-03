@@ -8,6 +8,7 @@
 //   /corse     corse di oggi in attesa o in servizio, per il sito (rinnovate al massimo ogni CACHE_SEC secondi)
 //   /agenzie   codici agenzia visibili con le credenziali (per impostare AGENCY_ID)        } solo con
 //   /prova     le prime corse di oggi con i loro identificativi (per il confronto col GTFS) } DEBUG = 1
+//   /diagnosi  prova più varianti di richiesta alle API e dice quali accettano               }
 //
 // Variabili (Settings → Variables and Secrets del Worker):
 //   CLIENT_ID, CLIENT_SECRET  secret: credenziali OAuth2 delle API (flusso client credentials)
@@ -15,6 +16,7 @@
 //   ALLOWED_ORIGINS           siti che possono leggere i dati, separati da virgola (es. https://astral-spa.github.io)
 //   DEBUG                     1 = attiva /agenzie e /prova, da usare durante la configurazione e poi togliere
 
+const VERSIONE = "2026-11-03b";
 const HOST = "https://tpl-admin.astralspa.it";
 const CACHE_SEC = 20;          // il sito interroga spesso: le API Astral al massimo una volta ogni 20 secondi
 const PAGE_SIZE = 500;
@@ -38,14 +40,15 @@ export default {
         if (!agenzie(env).length) return json({ errore: "impostare la variabile AGENCY_ID (codici in /agenzie)" }, 500, cors);
         return await corse(request, env, ctx, cors);
       }
-      if ((path === "/agenzie" || path === "/prova") && env.DEBUG !== "1") {
+      if (["/agenzie", "/prova", "/diagnosi"].includes(path) && env.DEBUG !== "1") {
         return json({ errore: "indirizzo di configurazione disattivato (variabile DEBUG)" }, 403, cors);
       }
       if (path === "/agenzie") return json(await api(env, "GET", "/realtime/api/client/agency"), 200, cors);
       if (path === "/prova") return json(await prova(env), 200, cors);
-      return json({ errore: "indirizzo sconosciuto", indirizzi: ["/corse", "/agenzie", "/prova"] }, 404, cors);
+      if (path === "/diagnosi") return json(await diagnosi(env), 200, cors);
+      return json({ errore: "indirizzo sconosciuto", versione: VERSIONE, indirizzi: ["/corse", "/agenzie", "/prova", "/diagnosi"] }, 404, cors);
     } catch (e) {
-      return json({ errore: String(e.message || e) }, 502, cors);
+      return json({ errore: String(e.message || e), versione: VERSIONE }, 502, cors);
     }
   },
 };
@@ -84,6 +87,39 @@ async function prova(env) {
     status: t.status, serviceDate: t.serviceDate, delay: t.delay, narrative: t.narrative,
     fermate: (t.stops || []).slice(0, 3).map(s => ({ id: s.id, title: s.title })),
   }));
+}
+
+async function diagnosi(env) {
+  // ogni variante: metodo, percorso, corpo; risponde con lo stato HTTP e l'inizio della risposta
+  const { from, to } = oggiRoma();
+  const tutti = { agencyId: [], vehicleId: [], narratives: [], status: [], city: [], from: null, to: null };
+  const trips = "/realtime/api/transit/tripServiceRecord/trips";
+  const varianti = [
+    ["documentazione, senza date", "POST", trips + "?page=0&size=5", tutti],
+    ["documentazione, senza parametri", "POST", trips, tutti],
+    ["date UTC", "POST", trips + "?page=0&size=5", { ...tutti, from, to }],
+    ["date UTC, solo in servizio", "POST", trips + "?page=0&size=5", { ...tutti, from, to, status: ["IN_SERVICE"] }],
+    ["corpo vuoto", "POST", trips + "?page=0&size=5", {}],
+    ["con ordinamento", "POST", trips + "?page=0&size=5&sort=serviceDate,desc", tutti],
+    ["stati possibili", "GET", "/realtime/api/transit/enum/tripStatus"],
+    ["città", "GET", "/realtime/api/transit/values/cities"],
+    ["agenzie (city-agency)", "GET", "/realtime/api/client/city-agency"],
+    ["agenzie (agency)", "GET", "/realtime/api/client/agency"],
+  ];
+  const out = { versione: VERSIONE, from, to, risultati: [] };
+  const tok = await accesso(env, false);
+  for (const [nome, method, path, body] of varianti) {
+    try {
+      const r = await fetch(HOST + path, {
+        method, headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: "Bearer " + tok },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      out.risultati.push({ nome, http: r.status, risposta: (await r.text()).replace(/\s+/g, " ").slice(0, 300) });
+    } catch (e) {
+      out.risultati.push({ nome, errore: String(e.message || e) });
+    }
+  }
+  return out;
 }
 
 async function tuttiITrip(env, filtri, maxPagine = MAX_PAGES, size = PAGE_SIZE) {
