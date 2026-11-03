@@ -774,6 +774,11 @@ table.tt .ov { opacity: .35; }
 .pop .times b { font-weight: 700; }
 .pop .none { color: var(--muted); }
 .pop .past { color: var(--muted); }
+.pop .arr { margin-bottom: 10px; padding: 6px 8px; border-radius: 6px; background: #dff3e4; color: #12502a; }
+.pop .arr .dep { max-height: 140px; }
+.pop .arr-h { font: 700 .72rem var(--f-body); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+:root[data-theme="dark"] .pop .arr { background: #173a24; color: #bfe8cb; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pop .arr { background: #173a24; color: #bfe8cb; } }
 
 .panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 16px; min-width: 0; }
 .panel h2 { margin: 0; font: 700 1.6rem/1.1 var(--f-display); text-wrap: balance; }
@@ -1140,12 +1145,37 @@ function departuresAt(stopIdx, day) {
   return [...groups.values()].map(g => (g.times.sort((a, b) => a.m - b.m), g))
     .sort((a, b) => LINEE.indexOf(a.l) - LINEE.indexOf(b.l));
 }
+// bus in viaggio (tempo reale) che devono ancora passare dalla fermata, compresi gli arrivi al capolinea,
+// che fra le partenze non compaiono
+function arriviLive(stopIdx) {
+  if (!rtLive()) return [];
+  const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+  const out = [];
+  stopUse[stopIdx].forEach(({ l, t, i }) => {
+    t.corse.forEach(c => {
+      if (c.o[i] == null) return;
+      const r = rtOf(c.id), nr = rtNextRow(c);
+      if (nr == null || nr > i) return;  // non in viaggio, o fermata già passata
+      let ultima = -1; for (let k = c.o.length - 1; k >= 0; k--) if (c.o[k] != null) { ultima = k; break; }
+      const prev = Math.round(c.o[i] + (r.ritardo || 0) / 60);
+      if (prev < nowMin - 10) return;  // arrivo previsto da più di 10 minuti: dato non aggiornato, non si mostra
+      out.push({ l, titolo: t.titolo, r, m: c.o[i], prev, capolinea: ultima === i });
+    });
+  });
+  return out.sort((a, b) => a.prev - b.prev);
+}
 function openStop(i) {
   const s = STOPS[i];
   const deps = departuresAt(i, state.day);
   const now = new Date(); const isToday = ymd(now) === state.day;
   const nowMin = now.getHours() * 60 + now.getMinutes();
   let html = `<div class="pop"><h4>${esc(s[1])}</h4><div class="loc">${esc(s[2] || "")}${s[2] ? " · " : ""}partenze ${esc(itLong(state.day))}</div>`;
+  const arr = arriviLive(i);
+  if (arr.length) {
+    html += `<div class="arr"><div class="arr-h">In arrivo · tempo reale</div><div class="dep">` + arr.map(a =>
+      `<div>${badge(a.l, "sm")}</div><div><div style="font-size:.78rem;color:var(--muted)">→ ${esc(a.titolo)}${a.capolinea ? " · <b>arrivo al capolinea</b>" : ""}</div>` +
+      `<div class="times">previsto <b>${hhmm(a.prev)}</b> (orario ${hhmm(a.m)})${rtBadge(a.r)}</div></div>`).join("") + `</div></div>`;
+  }
   if (!deps.length) html += `<div class="none">Nessuna partenza in questo giorno.</div>`;
   else {
     html += `<div class="dep">`;

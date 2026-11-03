@@ -24,7 +24,8 @@ Grafica e funzioni sono le stesse dei siti delle altre UdR (base: UdR 5).
 - **Tempo reale** (solo per il giorno di oggi, sul sito online): ogni 30 secondi, e solo mentre la pagina è in primo
   piano, il sito legge dal proxy (`REALTIME` in testa a `build_data.py`, codice in `proxy-realtime/`) ritardo e stato
   delle corse. Nel quadro orario sotto il numero delle corse in viaggio compare il ritardo (+) o l'anticipo (−) in
-  minuti; nelle partenze di una fermata il ritardo accanto all'orario; **Bus in viaggio** si accende da solo all'arrivo dei dati di oggi (se chi usa il sito non l'ha spento) e le corse con
+  minuti; nelle partenze di una fermata il ritardo accanto all'orario e, in cima, i bus «In arrivo» che devono ancora
+  passare (compresi gli arrivi al capolinea) con l'orario previsto; **Bus in viaggio** si accende da solo all'arrivo dei dati di oggi (se chi usa il sito non l'ha spento) e le corse con
   dati reali sono posizionate spostando l'orario del ritardo e hanno il bordo verde, le altre restano stimate dagli
   orari. La **prossima fermata** di ogni corsa in viaggio (`nextStopIndex` delle API, contato da 0 sulle fermate
   della corsa) è evidenziata in verde nel quadro orario (la riga compare anche con «solo fermate principali») e,
