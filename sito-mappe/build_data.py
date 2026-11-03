@@ -178,7 +178,8 @@ def localita(pref):
     nei prefissi con la frazione ('Grunuovo - S. COSMA-DAMIANO', 'Suio Alto CASTELFORTE') vale il comune."""
     pref = re.sub(r"\s+", " ", pref).strip(" -")
     for key, com in sorted(list(LOCALITA.items()) + [(c.upper(), c) for c in NOMI_COMUNI], key=lambda kv: -len(kv[0])):
-        if pref.upper().endswith(key):
+        # solo parola intera: "PALATINA" non è il comune di Latina
+        if re.search(r"(^|[\s-])" + re.escape(key) + r"$", pref.upper()):
             return com
     m = re.search(r"([A-Z][A-Z' .-]*[A-Z])$", pref)
     key = m.group(1).strip(" -") if m else pref
