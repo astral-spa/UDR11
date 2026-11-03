@@ -6,8 +6,9 @@
 //
 // Indirizzi (tutti GET):
 //   /corse     corse di oggi in attesa o in servizio, per il sito (rinnovate al massimo ogni CACHE_SEC secondi)
-//   /agenzie   codici agenzia visibili con le credenziali (per impostare AGENCY_ID)        } solo con
+//   /agenzie   agenzie presenti nelle corse di oggi, con esempi (per impostare AGENCY_ID)  } solo con
 //   /prova     le prime corse di oggi con i loro identificativi (per il confronto col GTFS) } DEBUG = 1
+//              (/prova?agenzia=CODICE per provare un codice prima di impostarlo)
 //   /diagnosi  prova più varianti di richiesta alle API e dice quali accettano               }
 //
 // Variabili (Settings → Variables and Secrets del Worker):
@@ -16,7 +17,7 @@
 //   ALLOWED_ORIGINS           siti che possono leggere i dati, separati da virgola (es. https://astral-spa.github.io)
 //   DEBUG                     1 = attiva /agenzie e /prova, da usare durante la configurazione e poi togliere
 
-const VERSIONE = "2026-11-03b";
+const VERSIONE = "2026-11-03c";
 const HOST = "https://tpl-admin.astralspa.it";
 const CACHE_SEC = 20;          // il sito interroga spesso: le API Astral al massimo una volta ogni 20 secondi
 const PAGE_SIZE = 500;
@@ -43,8 +44,8 @@ export default {
       if (["/agenzie", "/prova", "/diagnosi"].includes(path) && env.DEBUG !== "1") {
         return json({ errore: "indirizzo di configurazione disattivato (variabile DEBUG)" }, 403, cors);
       }
-      if (path === "/agenzie") return json(await api(env, "GET", "/realtime/api/client/agency"), 200, cors);
-      if (path === "/prova") return json(await prova(env), 200, cors);
+      if (path === "/agenzie") return json(await elencoAgenzie(env), 200, cors);
+      if (path === "/prova") return json(await prova(env, new URL(request.url).searchParams.get("agenzia")), 200, cors);
       if (path === "/diagnosi") return json(await diagnosi(env), 200, cors);
       return json({ errore: "indirizzo sconosciuto", versione: VERSIONE, indirizzi: ["/corse", "/agenzie", "/prova", "/diagnosi"] }, 404, cors);
     } catch (e) {
@@ -80,13 +81,25 @@ async function corse(request, env, ctx, cors) {
   return withHeaders(risposta, cors);
 }
 
-async function prova(env) {
-  const trips = await tuttiITrip(env, {}, 1, 5);
+async function prova(env, agenzia) {
+  const trips = await tuttiITrip(env, agenzia ? { agencyId: [agenzia] } : {}, 1, 5);
   return trips.map(t => ({
     id: t.id, agencyId: t.agencyId, routeId: t.routeId, tripId: t.tripId, originalTripId: t.originalTripId,
     status: t.status, serviceDate: t.serviceDate, delay: t.delay, narrative: t.narrative,
     fermate: (t.stops || []).slice(0, 3).map(s => ({ id: s.id, title: s.title })),
   }));
+}
+
+async function elencoAgenzie(env) {
+  // le API non hanno un elenco agenzie raggiungibile: si ricava dalle corse di oggi (fino a 1000)
+  const trips = await tuttiITrip(env, {}, 5, 200);
+  const agenzie = {};
+  for (const t of trips) {
+    const a = agenzie[t.agencyId] || (agenzie[t.agencyId] = { corse: 0, esempi: [] });
+    a.corse++;
+    if (a.esempi.length < 3) a.esempi.push({ routeId: t.routeId, originalTripId: t.originalTripId, linea: t.narrative });
+  }
+  return { corseLette: trips.length, agenzie };
 }
 
 async function diagnosi(env) {
@@ -95,12 +108,12 @@ async function diagnosi(env) {
   const tutti = { agencyId: [], vehicleId: [], narratives: [], status: [], city: [], from: null, to: null };
   const trips = "/realtime/api/transit/tripServiceRecord/trips";
   const varianti = [
-    ["documentazione, senza date", "POST", trips + "?page=0&size=5", tutti],
+    ["documentazione, senza date", "POST", trips + "?page=1&size=5", tutti],
     ["documentazione, senza parametri", "POST", trips, tutti],
-    ["date UTC", "POST", trips + "?page=0&size=5", { ...tutti, from, to }],
-    ["date UTC, solo in servizio", "POST", trips + "?page=0&size=5", { ...tutti, from, to, status: ["IN_SERVICE"] }],
-    ["corpo vuoto", "POST", trips + "?page=0&size=5", {}],
-    ["con ordinamento", "POST", trips + "?page=0&size=5&sort=serviceDate,desc", tutti],
+    ["date UTC", "POST", trips + "?page=1&size=5", { ...tutti, from, to }],
+    ["date UTC, solo in servizio", "POST", trips + "?page=1&size=5", { ...tutti, from, to, status: ["IN_SERVICE"] }],
+    ["corpo vuoto", "POST", trips + "?page=1&size=5", {}],
+    ["seconda pagina", "POST", trips + "?page=2&size=5", { ...tutti, from, to }],
     ["stati possibili", "GET", "/realtime/api/transit/enum/tripStatus"],
     ["città", "GET", "/realtime/api/transit/values/cities"],
     ["agenzie (city-agency)", "GET", "/realtime/api/client/city-agency"],
@@ -126,10 +139,10 @@ async function tuttiITrip(env, filtri, maxPagine = MAX_PAGES, size = PAGE_SIZE) 
   const { from, to } = oggiRoma();
   const body = { agencyId: agenzie(env), vehicleId: [], narratives: [], status: [], city: [], from, to, ...filtri };
   const out = [];
-  for (let page = 0; page < maxPagine; page++) {
+  for (let page = 1; page <= maxPagine; page++) {  // le API numerano le pagine da 1 (page=0 dà errore 400)
     const r = await api(env, "POST", `/realtime/api/transit/tripServiceRecord/trips?page=${page}&size=${size}`, body);
     out.push(...(r.data || []));
-    if (page + 1 >= (r.totalPage || 0)) break;
+    if (page >= (r.totalPage || 0)) break;
   }
   return out;
 }
