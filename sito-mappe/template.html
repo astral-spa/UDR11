@@ -1489,6 +1489,22 @@ function busAt(c, t, m) {
   const next = P.find(p => c.o[p.k] > m) || P[P.length - 1];
   return { ll: along(g, s), next: t.fermate[next.k], at: c.o[next.k] };
 }
+// corsa in viaggio secondo il tempo reale: il bus sta fra la fermata precedente e la prossima indicata dalle API,
+// avanzando con l'orario corretto del ritardo; così resta visibile anche se il ritardo comunicato non è aggiornato
+function busLive(c, t, m, nextRow) {
+  if (nextRow == null) return null;
+  const g = tripGeo(c, t), P = g.pos;
+  const j = P.findIndex(p => p.k === nextRow);
+  if (j < 0) return null;
+  const tm = i => c.o[P[i].k];
+  let s = P[j].s;
+  if (j > 0) {
+    const a = tm(j - 1), b = tm(j);
+    const f = b > a ? Math.max(0, Math.min(1, (m - a) / (b - a))) : 1;
+    s = P[j - 1].s + f * (P[j].s - P[j - 1].s);
+  }
+  return { ll: along(g, s), next: t.fermate[nextRow], at: c.o[nextRow] };
+}
 let tRange = [24 * 60, 0];
 LINEE.forEach(l => l.tab.forEach(t => t.corse.forEach(c => c.o.forEach(v => { if (v != null) { tRange[0] = Math.min(tRange[0], v); tRange[1] = Math.max(tRange[1], v); } }))));
 tRange = [Math.floor(tRange[0] / 30) * 30, Math.ceil(tRange[1] / 30) * 30];
@@ -1507,7 +1523,7 @@ function updateVehicles() {
       t.corse.forEach(c => {
         // in viaggio secondo il tempo reale: la posizione è quella dell'orario spostato del ritardo
         const r = live ? rt.trips.get(c.id) : null, inv = r && r.stato === "IN_SERVICE", dm = inv ? (r.ritardo || 0) / 60 : 0;
-        const b = busAt(c, t, m - dm); if (!b || !b.ll) return;
+        const b = (inv && busLive(c, t, m - dm, rtNextRow(c))) || busAt(c, t, m - dm); if (!b || !b.ll) return;
         seen.add(c.id);
         if (inv) nLive++;
         let mk = veh.markers.get(c.id);
@@ -1600,10 +1616,10 @@ function drawNext() {
   const i = c && rtNextRow(c);
   if (i == null) return;
   const st = STOPS[t.fermate[i]], r = rtOf(c.id);
-  nextLayer.addLayer(L.circleMarker([st[3], st[4]], { radius: 13, color: "#1f7a3a", weight: 4, fillColor: "#1f7a3a", fillOpacity: .2, interactive: false }));
-  nextLayer.addLayer(L.marker([st[3], st[4]], { opacity: 0, keyboard: false, interactive: false })
-    .bindTooltip(`Prossima fermata: <b>${esc(st[1])}</b><br>arrivo previsto ${hhmm(Math.round(c.o[i] + (r.ritardo || 0) / 60))} (tempo reale)`,
-      { permanent: true, direction: "top", offset: [0, -12] }));
+  // etichetta solo al passaggio del mouse: un'etichetta fissa coprirebbe il bus (le etichette stanno sopra i marcatori)
+  nextLayer.addLayer(L.circleMarker([st[3], st[4]], { radius: 13, color: "#1f7a3a", weight: 4, fillColor: "#1f7a3a", fillOpacity: .2 })
+    .bindTooltip(`Prossima fermata: <b>${esc(st[1])}</b> · arrivo previsto ${hhmm(Math.round(c.o[i] + (r.ritardo || 0) / 60))} (tempo reale)`,
+      { direction: "top", offset: [0, -12] }));
 }
 const oraDi = iso => new Date(iso).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 function rtTesto(r) {
