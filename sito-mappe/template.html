@@ -1193,6 +1193,8 @@ function openStop(i) {
 }
 
 /* ---------- elenco linee ---------- */
+// comuni della linea: di solito uno (area); con più comuni la linea compare sotto ciascuno
+const areeDi = l => l.aree || [l.area];
 function renderList() {
   const q = $("#cerca").value.trim().toLowerCase();
   let stopHits = [];
@@ -1204,9 +1206,14 @@ function renderList() {
     const hay = (l.n + " " + l.nome + " " + l.area + " " + (l.comuni || []).join(" ")).toLowerCase();
     const viaStop = stopHits.some(([s, i]) => stopUse[i].some(u => u.l === l));
     if (q && !hay.includes(q) && !viaStop) return;
-    if (!areas.has(l.area)) areas.set(l.area, []);
-    areas.get(l.area).push(l);
+    areeDi(l).forEach(a => {
+      if (!areas.has(a)) areas.set(a, []);
+      areas.get(a).push(l);
+    });
   });
+  // comuni in ordine alfabetico ("Altre linee", senza comune, in fondo)
+  const ordinate = [...areas].sort(([a], [b]) => (!a) - (!b) || a.localeCompare(b, "it"));
+  areas.clear(); ordinate.forEach(([a, ls]) => areas.set(a, ls));
   let html = "";
   if (stopHits.length) {
     html += `<li><h3>Fermate</h3></li>`;
@@ -1301,7 +1308,7 @@ function renderLine() {
 
   $("#pannello").innerHTML = `
     <div class="lhead">${badge(l)}<div><h2>${esc(l.nome)}</h2>
-      <div class="sub">${esc(l.area)}${l.km != null ? ` · percorso fino a ${l.km.toLocaleString("it-IT")} km` : ""} · <a href="#" id="tutte" style="color:var(--accent)">tutte le linee</a></div></div></div>
+      <div class="sub">${esc(areeDi(l).join(" · "))}${l.km != null ? ` · percorso fino a ${l.km.toLocaleString("it-IT")} km` : ""} · <a href="#" id="tutte" style="color:var(--accent)">tutte le linee</a></div></div></div>
     <div class="bar">
       <div class="seg" role="group" aria-label="Calendario">${svcs.map(s => {
         const on = activeOn(s, state.day);
@@ -1382,10 +1389,10 @@ function drawTrip(c) {
 
 /* ---------- filtri della mappa ---------- */
 const filt = { areas: new Set(JSON.parse(store.get("udr11-zone-off") || "[]")), onlyActive: store.get("udr11-soloAttive") === "1" };
-const AREE = [...new Set(LINEE.map(l => l.area))].sort((a, b) => a.localeCompare(b, "it"));
+const AREE = [...new Set(LINEE.flatMap(areeDi))].sort((a, b) => a.localeCompare(b, "it"));
 function renderZone() {
   $("#zoneList").innerHTML = `<div class="row"><a data-all="1">tutte</a><a data-all="0">nessuna</a></div>` +
-    AREE.map(a => `<label><input type="checkbox" data-area="${esc(a)}" ${filt.areas.has(a) ? "" : "checked"}> ${esc(a || "Altre linee")}<small>${LINEE.filter(l => l.area === a).length}</small></label>`).join("");
+    AREE.map(a => `<label><input type="checkbox" data-area="${esc(a)}" ${filt.areas.has(a) ? "" : "checked"}> ${esc(a || "Altre linee")}<small>${LINEE.filter(l => areeDi(l).includes(a)).length}</small></label>`).join("");
   const off = AREE.filter(a => filt.areas.has(a)).length;
   $("#zoneCnt").textContent = off ? `(${AREE.length - off}/${AREE.length})` : "";
 }
@@ -1767,7 +1774,7 @@ map.on("zoomend", () => { if (state.line) drawRoute(); });
 /* ---------- navigazione ---------- */
 function lineVisible(l) {
   if (state.line === l.id) return true;
-  if (filt.areas.has(l.area)) return false;
+  if (areeDi(l).every(a => filt.areas.has(a))) return false;  // nascosta solo se tutti i suoi comuni sono esclusi
   if (filt.onlyActive && !tripsOn(l, state.day)) return false;
   return true;
 }

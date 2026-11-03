@@ -439,11 +439,16 @@ def build(zpath, inizio="00000000", fine="99999999"):
             com = comuni[r["stop_id"]]
             if com:
                 passaggi[t["route_id"]][com] += 1
-    # il comune della linea è in route_desc ("Fondi/Sperlonga" -> Fondi); se manca, quello con più passaggi
+    # il comune della linea è in route_desc; se manca, quello con più passaggi. Con più comuni
+    # ("Fondi/Sperlonga") la linea compare nell'elenco sotto ciascuno, il primo è quello principale
     area = {rid: c.most_common(1)[0][0] for rid, c in passaggi.items()}
+    aree = {}
     for r in routes:
-        if r.get("route_desc", "").strip():
-            area[r["route_id"]] = r["route_desc"].split("/")[0].strip()
+        nomi = [x.strip() for x in r.get("route_desc", "").split("/") if x.strip()]
+        if nomi:
+            area[r["route_id"]] = nomi[0]
+            if len(nomi) > 1:
+                aree[r["route_id"]] = nomi
     routes = sorted(routes, key=lambda r: natural(numero(r["route_short_name"])))
     colors = line_colors(len(routes))
     linee = []
@@ -461,7 +466,7 @@ def build(zpath, inizio="00000000", fine="99999999"):
         shp = sorted({t["shape_id"] for t in rtrips})
         linee.append({
             "id": r["route_short_name"], "n": numero(r["route_short_name"]), "nome": r["route_long_name"] or r["route_short_name"],
-            "area": area.get(r["route_id"], ""), "comuni": sorted(passaggi[r["route_id"]]), "col": "#" + color.upper() if color else colors[ri],
+            "area": area.get(r["route_id"], ""), **({"aree": aree[r["route_id"]]} if r["route_id"] in aree else {}), "comuni": sorted(passaggi[r["route_id"]]), "col": "#" + color.upper() if color else colors[ri],
             "shapes": shp, "km": max(shape_km[s] for s in shp), "tab": tabs,
         })
 

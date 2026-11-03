@@ -7,7 +7,8 @@ Grafica e funzioni sono le stesse dei siti delle altre UdR (base: UdR 5).
 ## Funzioni
 
 - **Titolo cliccabile**: «Rete bus UdR 11» riporta alla mappa iniziale con tutte le linee (resta il giorno scelto).
-- **Elenco linee per comune** (il comune indicato in `route_desc` del GTFS) con ricerca per linea o fermata e numero
+- **Elenco linee per comune** (il comune indicato in `route_desc` del GTFS; con più comuni, come «Fondi/Sperlonga»,
+  la linea compare sotto ciascuno) con ricerca per linea o fermata e numero
   di corse nel giorno scelto. Il numero della linea si mostra senza la sigla del comune (`B_Fr` → **B**).
 - **Giorno**: si sceglie una data; linee, corse e partenze seguono i calendari.
 - **Calendari**: quelli del GTFS (`calendar.txt`), con le eccezioni di `calendar_dates.txt` (nessuna corsa
