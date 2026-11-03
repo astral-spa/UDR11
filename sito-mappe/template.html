@@ -1139,7 +1139,7 @@ function departuresAt(stopIdx, day) {
       if (lastServed === i) return;
       const key = l.id + "|" + t.titolo;
       if (!groups.has(key)) groups.set(key, { l, titolo: t.titolo, times: [] });
-      groups.get(key).times.push({ m: v, id: c.id });
+      groups.get(key).times.push({ m: v, id: rtKey(c) });
     });
   });
   return [...groups.values()].map(g => (g.times.sort((a, b) => a.m - b.m), g))
@@ -1154,7 +1154,7 @@ function arriviLive(stopIdx) {
   stopUse[stopIdx].forEach(({ l, t, i }) => {
     t.corse.forEach(c => {
       if (c.o[i] == null) return;
-      const r = rtOf(c.id), nr = rtNextRow(c);
+      const r = rtOf(rtKey(c)), nr = rtNextRow(c);
       if (nr == null || nr > i) return;  // non in viaggio, o fermata già passata
       let ultima = -1; for (let k = c.o.length - 1; k >= 0; k--) if (c.o[k] != null) { ultima = k; break; }
       const prev = Math.round(c.o[i] + (r.ritardo || 0) / 60);
@@ -1285,7 +1285,7 @@ function renderLine() {
   let thead = `<tr><th class="stop">Fermata</th>` + t.corse.map((c, k) => {
     const v = pv[c.shape];
     return `<th data-k="${k}" title="Corsa ${esc(c.id)}${v ? ` – percorso ${v.lett}` : ""} – clicca per vederla sulla mappa" class="${cls(c)}">${k + 1}${showLett && v ? `<br>${vlett(v, l.col)}` : ""}` +
-      (REALTIME ? `<br><span data-rt="${esc(c.id)}">${rtBadge(rtOf(c.id))}</span>` : "") + `</th>`;
+      (REALTIME ? `<br><span data-rt="${esc(rtKey(c))}">${rtBadge(rtOf(rtKey(c)))}</span>` : "") + `</th>`;
   }).join("") + `</tr>`;
   let tbody = rows.map(({ s, i }) => {
     const st = STOPS[s];
@@ -1294,7 +1294,7 @@ function renderLine() {
         const v = c.o[i], k = cls(c);
         if (v == null) return `<td class="na ${k}">·</td>`;
         if (nextRow[n] !== i) return `<td class="${k}">${hhmm(v)}</td>`;
-        const r = rtOf(c.id), prev = Math.round(v + (r.ritardo || 0) / 60);
+        const r = rtOf(rtKey(c)), prev = Math.round(v + (r.ritardo || 0) / 60);
         return `<td class="next ${k}" title="Prossima fermata della corsa (tempo reale): arrivo previsto alle ${hhmm(prev)}">${hhmm(v)}</td>`;
       }).join("") + `</tr>`;
   }).join("");
@@ -1554,7 +1554,7 @@ function updateVehicles() {
       if (!activeOn(t.svc, state.day)) return;
       t.corse.forEach(c => {
         // in viaggio secondo il tempo reale: la posizione è quella dell'orario spostato del ritardo
-        const r = live ? rt.trips.get(c.id) : null, inv = r && r.stato === "IN_SERVICE", dm = inv ? (r.ritardo || 0) / 60 : 0;
+        const r = live ? rt.trips.get(rtKey(c)) : null, inv = r && r.stato === "IN_SERVICE", dm = inv ? (r.ritardo || 0) / 60 : 0;
         const b = (inv && busLive(c, t, m - dm, rtNextRow(c))) || busAt(c, t, m - dm); if (!b || !b.ll) return;
         seen.add(c.id);
         if (inv) nLive++;
@@ -1624,17 +1624,18 @@ const REALTIME = /*REALTIME*/"";
 const rt = { trips: new Map(), at: null, ok: false, firma: "" };
 const rtLive = () => rt.ok && state.day === ymd(new Date());
 const rtOf = id => rtLive() ? rt.trips.get(id) : null;
+const rtKey = c => c.tid || c.id;  // i dati in tempo reale usano il trip_id del GTFS (c.tid se l'id mostrato è un altro)
 const rtMin = r => Math.round((r.ritardo || 0) / 60);
 // riga del quadro della prossima fermata della corsa: "prossima" conta da 0 le fermate servite dalla corsa
 function rtNextRow(c) {
-  const r = rtOf(c.id);
+  const r = rtOf(rtKey(c));
   if (!r || r.stato !== "IN_SERVICE" || r.prossima == null) return null;
   let n = -1;
   for (let i = 0; i < c.o.length; i++) if (c.o[i] != null && ++n === r.prossima) return i;
   return null;
 }
 // firma dei dati in tempo reale del quadro mostrato: se non cambia, il quadro non si ridisegna
-const rtFirma = t => t.corse.map(c => { const r = rtOf(c.id); return r ? `${r.stato}${r.ritardo}/${r.prossima}` : ""; }).join("|");
+const rtFirma = t => t.corse.map(c => { const r = rtOf(rtKey(c)); return r ? `${r.stato}${r.ritardo}/${r.prossima}` : ""; }).join("|");
 function quadroAttuale() {
   const l = state.line && byId[state.line];
   if (!l) return null;
@@ -1648,7 +1649,7 @@ function drawNext() {
   const t = quadroAttuale(), c = t && state.trip && t.corse.find(x => x.id === state.trip);
   const i = c && rtNextRow(c);
   if (i == null) return;
-  const st = STOPS[t.fermate[i]], r = rtOf(c.id);
+  const st = STOPS[t.fermate[i]], r = rtOf(rtKey(c));
   // etichetta solo al passaggio del mouse: un'etichetta fissa coprirebbe il bus (le etichette stanno sopra i marcatori)
   nextLayer.addLayer(L.circleMarker([st[3], st[4]], { renderer, radius: 13, color: "#1f7a3a", weight: 4, fillColor: "#1f7a3a", fillOpacity: .2 })
     .bindTooltip(`Prossima fermata: <b>${esc(st[1])}</b> · arrivo previsto ${hhmm(Math.round(c.o[i] + (r.ritardo || 0) / 60))} (tempo reale)`,
