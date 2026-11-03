@@ -34,7 +34,19 @@ Il codice è in `worker.js`; non contiene segreti, per cui può stare anche in u
    abbinare le corse.
 7. Apri `…/corse`: sono i dati che userà il sito. Se tutto va, metti `DEBUG` a `0`.
 
-L'indirizzo del Worker (`https://udr-realtime.<il-tuo-nome>.workers.dev`) è quello da indicare nel sito.
+L'indirizzo del Worker (`https://udr-realtime.<il-tuo-nome>.workers.dev`) va in `REALTIME` in testa a
+`sito-mappe/build_data.py`. Quello attivo è `https://udr-realtime.antonini1971.workers.dev`, con
+`AGENCY_ID` = `UdR11AirCampania`.
+
+Note sulle API (diverse dalla documentazione): le pagine si numerano da 1 (`page=0` dà errore 400) e l'elenco
+agenzie `/realtime/api/client/agency` non esiste (404), per cui `/agenzie` le ricava dalle corse di oggi. Le
+credenziali vedono le corse di tutte le aziende: per questo `/corse` richiede `AGENCY_ID` e gli indirizzi di
+configurazione vanno spenti (`DEBUG` = `0`). I dati per singola fermata (`delay`, `expectedArrival`, `visitedOn`)
+per ora arrivano vuoti: il sito usa il ritardo della corsa.
+
+Lo stesso Worker può servire anche le altre UdR (per esempio `UdR10AutolineeTroiani`, `UdR2AutoserviziTroiani`,
+`UdR7AutoserviziTroiani`, `BusInternationalService`): basta aggiungerne il codice in `AGENCY_ID`, separato da
+virgola, e `REALTIME` nel loro `build_data.py`.
 
 ## Messaggi di errore
 
@@ -43,6 +55,7 @@ L'indirizzo del Worker (`https://udr-realtime.<il-tuo-nome>.workers.dev`) è que
 | `credenziali mancanti`                     | mancano i secret `CLIENT_ID` / `CLIENT_SECRET`                 |
 | `token OAuth2: HTTP 401`                   | client id o secret sbagliati                                   |
 | `impostare la variabile AGENCY_ID`         | inserire il codice agenzia (punto 5)                           |
+| `Page index must not be less than zero`    | codice vecchio: ricaricare `worker.js` aggiornato              |
 | `API Astral …: HTTP 403`                   | le credenziali non hanno i permessi per quell'agenzia          |
 | `indirizzo di configurazione disattivato`  | `/agenzie` e `/prova` funzionano solo con `DEBUG` = `1`         |
 

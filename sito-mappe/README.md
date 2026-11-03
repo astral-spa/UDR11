@@ -20,6 +20,13 @@ Grafica e funzioni sono le stesse dei siti delle altre UdR (base: UdR 5).
 - **Quadro orario** per calendario e direzione, con fermate principali o tutte; clic su una corsa per vederla
   sulla mappa, clic su una fermata per le sue partenze del giorno.
 - **Vicino a me** e **Bus in viaggio** (posizioni stimate dagli orari programmati, non in tempo reale).
+- **Tempo reale** (solo per il giorno di oggi, sul sito online): ogni 30 secondi, e solo mentre la pagina è in primo
+  piano, il sito legge dal proxy (`REALTIME` in testa a `build_data.py`, codice in `proxy-realtime/`) ritardo e stato
+  delle corse. Nel quadro orario sotto il numero delle corse in viaggio compare il ritardo (+) o l'anticipo (−) in
+  minuti; nelle partenze di una fermata il ritardo accanto all'orario; con **Bus in viaggio** → *Adesso* le corse con
+  dati reali sono posizionate spostando l'orario del ritardo e hanno il bordo verde, le altre restano stimate dagli
+  orari. Le corse si abbinano con il `trip_id` del GTFS. Se il proxy non risponde il sito mostra solo gli orari;
+  con `REALTIME` vuoto il tempo reale è spento.
 - Orari sempre nel formato **hh:mm**: gli orari del GTFS con i secondi sono troncati al minuto.
 
 **Correzioni ai nomi**: errori nei nomi delle linee e nelle destinazioni delle corse del GTFS si correggono in

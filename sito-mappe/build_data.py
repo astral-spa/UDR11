@@ -66,6 +66,10 @@ FRAZIONI = {
     "Spigno Saturnia Inferiore": "Spigno Saturnia", "Spigno Saturnia Superiore": "Spigno Saturnia",
     "Campodivivo": "Spigno Saturnia", "Stazione di Itri": "Itri", "Stazione Fossanova": "Priverno",
 }
+# proxy del tempo reale (proxy-realtime/ nel repo, su Cloudflare): ritardi delle corse di oggi;
+# vuoto = sito con i soli orari programmati
+REALTIME = "https://udr-realtime.antonini1971.workers.dev"
+
 # correzioni ai nomi delle linee e alle destinazioni delle corse (route_long_name, trip_headsign) del GTFS
 CORREZIONI = {
     "Via Pellizzari": "Via Pezzellari",  # linea A di Spigno Saturnia, come nella linea A1
@@ -590,7 +594,8 @@ def main():
     blob = json.dumps(dati, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     with open(os.path.join(HERE, "logo.png"), "rb") as f:  # logo incluso nella pagina: online va solo index.html
         logo = "data:image/png;base64," + base64.b64encode(f.read()).decode()
-    for old, new in (("/*DATI*/null", blob), ("/*TITOLO*/", TITOLO), ("/*LOGO*/", logo)):
+    for old, new in (("/*DATI*/null", blob), ("/*TITOLO*/", TITOLO), ("/*LOGO*/", logo),
+                     ('/*REALTIME*/""', json.dumps(REALTIME))):
         if old not in html:
             raise SystemExit(f"Segnaposto {old} non trovato in template.html")
         html = html.replace(old, new)

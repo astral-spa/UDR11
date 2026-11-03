@@ -803,6 +803,11 @@ table.tt tr.minor td { color: var(--muted); }
 table.tt td.na { color: var(--rule); }
 table.tt tr:hover td, table.tt tr:hover th.stop { background: var(--hl-col); }
 table.tt .sel { background: var(--hl) !important; }
+.rt { display: inline-block; margin-top: 2px; padding: 0 4px; border-radius: 3px; font: 700 .72rem var(--f-body); color: #fff; background: #1f7a3a; white-space: nowrap; }
+.rt.late { background: #b3261e; }
+.rt.early { background: #8a5a00; }
+.pop .rt { margin: 0 2px 0 1px; vertical-align: 1px; }
+.bus-ico.live span { box-shadow: 0 0 0 3px #1f7a3a, 0 1px 4px rgba(0,0,0,.45); }
 table.tt tbody tr:last-child td, table.tt tbody tr:last-child th { border-bottom: 0; }
 
 .summary { width: 100%; border-collapse: collapse; font-size: .88rem; font-variant-numeric: tabular-nums; }
@@ -1124,10 +1129,10 @@ function departuresAt(stopIdx, day) {
       if (lastServed === i) return;
       const key = l.id + "|" + t.titolo;
       if (!groups.has(key)) groups.set(key, { l, titolo: t.titolo, times: [] });
-      groups.get(key).times.push(v);
+      groups.get(key).times.push({ m: v, id: c.id });
     });
   });
-  return [...groups.values()].map(g => (g.times.sort((a, b) => a - b), g))
+  return [...groups.values()].map(g => (g.times.sort((a, b) => a.m - b.m), g))
     .sort((a, b) => LINEE.indexOf(a.l) - LINEE.indexOf(b.l));
 }
 function openStop(i) {
@@ -1141,7 +1146,10 @@ function openStop(i) {
     html += `<div class="dep">`;
     deps.forEach(g => {
       html += `<div>${badge(g.l, "sm")}</div><div><div style="font-size:.78rem;color:var(--muted)">→ ${esc(g.titolo)}</div><div class="times">` +
-        g.times.map(m => isToday && m < nowMin ? `<span class="past">${hhmm(m)}</span>` : `<b>${hhmm(m)}</b>`).join(" ") + `</div></div>`;
+        g.times.map(({ m, id }) => {
+          const r = rtOf(id), late = r && r.stato === "IN_SERVICE" ? rtMin(r) : 0;
+          return isToday && m + late < nowMin ? `<span class="past">${hhmm(m)}</span>` : `<b>${hhmm(m)}</b>${rtBadge(r)}`;
+        }).join(" ") + `</div></div>`;
     });
     html += `</div>`;
   }
@@ -1238,7 +1246,8 @@ function renderLine() {
   const cls = c => [state.trip === c.id ? "sel" : "", state.variant && pv[state.variant] && pv[state.variant].dir === t.dir && c.shape !== state.variant ? "ov" : ""].join(" ").trim();
   let thead = `<tr><th class="stop">Fermata</th>` + t.corse.map((c, k) => {
     const v = pv[c.shape];
-    return `<th data-k="${k}" title="Corsa ${esc(c.id)}${v ? ` – percorso ${v.lett}` : ""} – clicca per vederla sulla mappa" class="${cls(c)}">${k + 1}${showLett && v ? `<br>${vlett(v, l.col)}` : ""}</th>`;
+    return `<th data-k="${k}" title="Corsa ${esc(c.id)}${v ? ` – percorso ${v.lett}` : ""} – clicca per vederla sulla mappa" class="${cls(c)}">${k + 1}${showLett && v ? `<br>${vlett(v, l.col)}` : ""}` +
+      (REALTIME ? `<br><span data-rt="${esc(c.id)}">${rtBadge(rtOf(c.id))}</span>` : "") + `</th>`;
   }).join("") + `</tr>`;
   let tbody = rows.map(({ s, i }) => {
     const st = STOPS[s];
@@ -1275,7 +1284,7 @@ function renderLine() {
       ${activeOn(state.svc, state.day) ? "" : ` <b>Questo calendario non è attivo ${esc(itLong(state.day))}.</b>`}
       Sulla mappa la direzione scelta è a tratto pieno con le frecce del senso di marcia (P = partenza, A = arrivo), l'altra è tratteggiata.
       ${showLett ? "La lettera sotto il numero della corsa indica il percorso seguito. " : ""}Clicca un percorso per evidenziarlo, il numero di una corsa per vederla sulla mappa, o il nome di una fermata per le sue partenze.
-      Orari in grassetto: fermate principali; «·» la corsa non passa dalla fermata.</p>
+      Orari in grassetto: fermate principali; «·» la corsa non passa dalla fermata.<span data-rtnote>${rtNote()}</span></p>
     <div class="tt-wrap"><table class="tt"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
 
   const p = $("#pannello");
@@ -1413,7 +1422,7 @@ $("#vicino").addEventListener("click", () => {
 });
 
 /* ---------- bus in viaggio (da orario programmato) ---------- */
-const veh = { on: false, min: 480, timer: null, layer: L.layerGroup().addTo(map), markers: new Map() };
+const veh = { on: false, live: false, min: 480, timer: null, layer: L.layerGroup().addTo(map), markers: new Map() };
 const geoCache = {};
 // proietta le fermate servite sul percorso: distanza progressiva (km) di ciascuna fermata
 function tripGeo(c, t) {
@@ -1476,7 +1485,8 @@ tRange = [Math.floor(tRange[0] / 30) * 30, Math.ceil(tRange[1] / 30) * 30];
 $("#vehMin").min = tRange[0]; $("#vehMin").max = tRange[1];
 function updateVehicles() {
   if (!veh.on) return;
-  const m = veh.min;
+  const m = veh.min, live = veh.live && rtLive();
+  let nLive = 0;
   $("#vehMin").value = Math.floor(m);
   $("#vehOut").value = hhmm(Math.floor(m) % 1440);
   const seen = new Set();
@@ -1485,8 +1495,11 @@ function updateVehicles() {
     l.tab.forEach(t => {
       if (!activeOn(t.svc, state.day)) return;
       t.corse.forEach(c => {
-        const b = busAt(c, t, m); if (!b || !b.ll) return;
+        // in viaggio secondo il tempo reale: la posizione è quella dell'orario spostato del ritardo
+        const r = live ? rt.trips.get(c.id) : null, inv = r && r.stato === "IN_SERVICE", dm = inv ? (r.ritardo || 0) / 60 : 0;
+        const b = busAt(c, t, m - dm); if (!b || !b.ll) return;
         seen.add(c.id);
+        if (inv) nLive++;
         let mk = veh.markers.get(c.id);
         if (!mk) {
           const w = Math.max(26, 10 + 8 * l.n.length);
@@ -1500,16 +1513,21 @@ function updateVehicles() {
           });
           veh.layer.addLayer(mk); veh.markers.set(c.id, mk);
         } else mk.setLatLng(b.ll);
-        mk.setTooltipContent(`<b>Linea ${esc(l.n)}</b> → ${esc(t.titolo)}<br>prossima fermata: ${esc(STOPS[b.next][1])} (${hhmm(b.at % 1440)})`);
+        mk.getElement()?.classList.toggle("live", !!inv);
+        mk.setTooltipContent(`<b>Linea ${esc(l.n)}</b> → ${esc(t.titolo)}<br>prossima fermata: ${esc(STOPS[b.next][1])} (${hhmm(Math.round(b.at + dm) % 1440)})` +
+          (inv ? `<br>tempo reale: ${rtTesto(r)}` : live ? "<br>posizione stimata dagli orari" : ""));
       });
     });
   });
   veh.markers.forEach((mk, id) => { if (!seen.has(id)) { veh.layer.removeLayer(mk); veh.markers.delete(id); } });
-  $("#vehCnt").textContent = `${seen.size} bus in viaggio · posizioni stimate dagli orari, non in tempo reale`;
+  $("#vehCnt").textContent = live
+    ? `${seen.size} bus in viaggio · ${nLive} in tempo reale (bordo verde), gli altri stimati dagli orari`
+    : `${seen.size} bus in viaggio · posizioni stimate dagli orari, non in tempo reale`;
 }
 function vehStop() { clearInterval(veh.timer); veh.timer = null; $("#vehPlay").textContent = "▶"; $("#vehPlay").setAttribute("aria-pressed", "false"); }
 function vehNow() {
   const now = new Date(), today = ymd(now);
+  veh.live = true;  // segue l'ora attuale: si possono usare i dati in tempo reale
   if (today >= D.feed.dal && today <= D.feed.al && today !== state.day) setDay(today);
   veh.min = Math.max(tRange[0], Math.min(tRange[1], now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60));
   updateVehicles();
@@ -1520,16 +1538,17 @@ $("#vehOn").addEventListener("click", () => {
   ["#vehPlay", "#vehMin", "#vehNow"].forEach(s => $(s).disabled = !veh.on);
   if (veh.on) {
     const now = new Date();
-    if (ymd(now) === state.day) vehNow(); else { veh.min = Math.max(tRange[0], 7 * 60 + 30); updateVehicles(); }
+    if (ymd(now) === state.day) vehNow(); else { veh.live = false; veh.min = Math.max(tRange[0], 7 * 60 + 30); updateVehicles(); }
   } else {
     vehStop(); veh.layer.clearLayers(); veh.markers.clear();
     $("#vehOut").value = "--:--"; $("#vehCnt").textContent = "";
   }
 });
-$("#vehMin").addEventListener("input", e => { veh.min = +e.target.value; updateVehicles(); });
+$("#vehMin").addEventListener("input", e => { veh.live = false; veh.min = +e.target.value; updateVehicles(); });
 $("#vehNow").addEventListener("click", () => { vehStop(); vehNow(); });
 $("#vehPlay").addEventListener("click", () => {
   if (veh.timer) return vehStop();
+  veh.live = false;
   $("#vehPlay").textContent = "❚❚"; $("#vehPlay").setAttribute("aria-pressed", "true");
   veh.timer = setInterval(() => {
     veh.min += 0.25; // 2,5 minuti di orario al secondo
@@ -1537,6 +1556,55 @@ $("#vehPlay").addEventListener("click", () => {
     updateVehicles();
   }, 100);
 });
+
+/* ---------- tempo reale: ritardi delle corse di oggi dal proxy delle API Astral ---------- */
+// indirizzo del proxy (impostato in build_data.py); vuoto = sito con i soli orari programmati
+const REALTIME = /*REALTIME*/"";
+const rt = { trips: new Map(), at: null, ok: false };
+const rtLive = () => rt.ok && state.day === ymd(new Date());
+const rtOf = id => rtLive() ? rt.trips.get(id) : null;
+const rtMin = r => Math.round((r.ritardo || 0) / 60);
+const oraDi = iso => new Date(iso).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+function rtTesto(r) {
+  const d = rtMin(r);
+  return (d >= 1 ? `in ritardo di ${d} min` : d <= -1 ? `in anticipo di ${-d} min` : "in orario") +
+    (r.segnale ? ` (ultimo segnale ${oraDi(r.segnale)})` : "");
+}
+function rtBadge(r) {
+  // solo le corse partite: per quelle in attesa il ritardo non è ancora noto
+  if (!r || r.stato !== "IN_SERVICE") return "";
+  const d = rtMin(r);
+  return `<span class="rt ${d >= 1 ? "late" : d <= -1 ? "early" : ""}" title="Tempo reale: ${esc(rtTesto(r))}">${d >= 1 ? `+${d}′` : d <= -1 ? `−${-d}′` : "0′"}</span>`;
+}
+function rtNote() {
+  if (!REALTIME || !rtLive()) return "";
+  return ` Sotto il numero delle corse in viaggio: ritardo (+) o anticipo (−) in minuti, in tempo reale (aggiornato alle ${oraDi(rt.at)}).`;
+}
+function rtRefresh() {
+  document.querySelectorAll("[data-rt]").forEach(el => { el.innerHTML = rtBadge(rtOf(el.dataset.rt)); });
+  document.querySelectorAll("[data-rtnote]").forEach(el => { el.textContent = rtNote(); });
+  if (veh.on && veh.live) vehNow();
+}
+async function rtLoad() {
+  if (document.hidden) return;  // pagina in secondo piano: nessuna richiesta
+  try {
+    const r = await fetch(REALTIME.replace(/\/+$/, "") + "/corse", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    rt.trips = new Map((j.corse || []).map(c => [c.trip, c]));
+    rt.at = j.aggiornato || new Date().toISOString();
+    rt.ok = true;
+  } catch (e) {
+    rt.ok = false;  // proxy non raggiungibile: restano gli orari programmati
+  }
+  rtRefresh();
+}
+if (REALTIME && /^https?:$/.test(location.protocol)) {
+  $("#vehOn").title = "Posizione dei bus: in tempo reale dove ci sono i dati (bordo verde), altrimenti stimata dagli orari";
+  rtLoad();
+  setInterval(rtLoad, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) rtLoad(); });
+}
 
 /* ---------- percorsi della linea scelta sulla mappa ---------- */
 const routeLayer = L.layerGroup().addTo(map);
