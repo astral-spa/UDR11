@@ -105,7 +105,10 @@ async function api(env, method, path, body, nuovoToken = false) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (r.status === 401 && !nuovoToken) return api(env, method, path, body, true);  // token scaduto: uno nuovo
-  if (!r.ok) throw new Error(`API Astral ${path.split("?")[0]}: HTTP ${r.status}`);
+  if (!r.ok) {
+    const motivo = (await r.text()).replace(/\s+/g, " ").slice(0, 400);  // la spiegazione delle API, se c'è
+    throw new Error(`API Astral ${path.split("?")[0]}: HTTP ${r.status}${motivo ? " — " + motivo : ""}`);
+  }
   return r.json();
 }
 
@@ -131,12 +134,22 @@ function agenzie(env) {
 }
 
 function oggiRoma() {
-  // giornata di oggi in Italia, con il fuso giusto (ora legale compresa): 00:00:00–23:59:59
+  // giornata di oggi in Italia (00:00:00–23:59:59, ora legale compresa) scritta in UTC come negli esempi
+  // della documentazione: il 3/11 diventa 2026-11-02T23:00:00.000Z – 2026-11-03T22:59:59.000Z
   const ora = new Date();
-  const giorno = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(ora);  // 2026-11-03
-  const fuso = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Rome", timeZoneName: "longOffset" })
-    .formatToParts(ora).find(p => p.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
-  return { from: `${giorno}T00:00:00${fuso}`, to: `${giorno}T23:59:59${fuso}` };
+  const [a, m, g] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(ora).split("-").map(Number);
+  const mezzanotte = Date.UTC(a, m - 1, g) - offsetRoma(new Date(Date.UTC(a, m - 1, g, 12))) * 60000;
+  const fine = Date.UTC(a, m - 1, g, 23, 59, 59) - offsetRoma(new Date(Date.UTC(a, m - 1, g, 12))) * 60000;
+  return { from: new Date(mezzanotte).toISOString(), to: new Date(fine).toISOString() };
+}
+
+function offsetRoma(data) {
+  // minuti di differenza tra l'ora italiana e UTC in quella data (60 d'inverno, 120 d'estate)
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Rome", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  }).formatToParts(data).map(x => [x.type, x.value]));
+  return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - data.getTime()) / 60000;
 }
 
 function corsHeaders(request, env) {
