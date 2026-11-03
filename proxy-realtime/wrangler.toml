@@ -1,0 +1,12 @@
+# Configurazione per chi pubblica il proxy con la riga di comando (npx wrangler deploy).
+# Le credenziali NON vanno qui: si impostano con
+#   npx wrangler secret put CLIENT_ID
+#   npx wrangler secret put CLIENT_SECRET
+name = "udr-realtime"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+AGENCY_ID = ""            # codice agenzia dell'UdR (vedi /agenzie con DEBUG = "1")
+ALLOWED_ORIGINS = "https://astral-spa.github.io"
+DEBUG = "0"
