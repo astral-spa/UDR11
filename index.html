@@ -1560,7 +1560,8 @@ function vehNow() {
   veh.min = Math.max(tRange[0], Math.min(tRange[1], now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60));
   updateVehicles();
 }
-$("#vehOn").addEventListener("click", () => {
+$("#vehOn").addEventListener("click", e => {
+  if (e.isTrusted) veh.manuale = true;  // scelta di chi usa il sito: l'accensione automatica non la cambia più
   veh.on = !veh.on;
   $("#vehOn").setAttribute("aria-pressed", veh.on);
   ["#vehPlay", "#vehMin", "#vehNow"].forEach(s => $(s).disabled = !veh.on);
@@ -1659,6 +1660,8 @@ async function rtLoad() {
     rt.trips = new Map((j.corse || []).map(c => [c.trip, c]));
     rt.at = j.aggiornato || new Date().toISOString();
     rt.ok = true;
+    // con i dati in tempo reale di oggi i bus si mostrano da soli, se chi usa il sito non ha già scelto
+    if (!veh.on && !veh.manuale && rtLive()) $("#vehOn").click();
   } catch (e) {
     rt.ok = false;  // proxy non raggiungibile: restano gli orari programmati
   }
