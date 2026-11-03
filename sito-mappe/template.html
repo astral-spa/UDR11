@@ -807,6 +807,9 @@ table.tt .sel { background: var(--hl) !important; }
 .rt.late { background: #b3261e; }
 .rt.early { background: #8a5a00; }
 .pop .rt { margin: 0 2px 0 1px; vertical-align: 1px; }
+table.tt td.next { background: #dff3e4 !important; box-shadow: inset 0 0 0 2px #1f7a3a; color: #12502a; font-weight: 700; }
+:root[data-theme="dark"] table.tt td.next { background: #173a24 !important; color: #bfe8cb; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) table.tt td.next { background: #173a24 !important; color: #bfe8cb; } }
 .bus-ico.live span { box-shadow: 0 0 0 3px #1f7a3a, 0 1px 4px rgba(0,0,0,.45); }
 table.tt tbody tr:last-child td, table.tt tbody tr:last-child th { border-bottom: 0; }
 
@@ -1239,7 +1242,10 @@ function renderLine() {
   const t = tabs.find(x => x.dir === state.dir) || tabs[0];
   const sv = SVC[state.svc];
   const esclusi = sv.esclusi.length ? ` Non si effettua: ${sv.esclusi.map(itDate).join(", ")}.` : "";
-  const rows = t.fermate.map((s, i) => ({ s, i })).filter(r => !state.onlyMain || t.princ[r.i]);
+  // prossima fermata di ogni corsa in viaggio (tempo reale): la riga si vede anche fra le sole fermate principali
+  const nextRow = t.corse.map(rtNextRow), nextRows = new Set(nextRow.filter(i => i != null));
+  const rows = t.fermate.map((s, i) => ({ s, i })).filter(r => !state.onlyMain || t.princ[r.i] || nextRows.has(r.i));
+  rt.firma = rtFirma(t);
 
   const PV = percorsiOf(l), pv = Object.fromEntries(PV.map(v => [v.id, v]));
   const showLett = t.corse.some(c => pv[c.shape] && pv[c.shape].multi);
@@ -1252,9 +1258,12 @@ function renderLine() {
   let tbody = rows.map(({ s, i }) => {
     const st = STOPS[s];
     return `<tr class="${t.princ[i] ? "main" : "minor"}"><th class="stop" data-s="${s}">${esc(st[1])}${st[2] ? `<small>${esc(st[2])}</small>` : ""}</th>` +
-      t.corse.map(c => {
+      t.corse.map((c, n) => {
         const v = c.o[i], k = cls(c);
-        return v == null ? `<td class="na ${k}">·</td>` : `<td class="${k}">${hhmm(v)}</td>`;
+        if (v == null) return `<td class="na ${k}">·</td>`;
+        if (nextRow[n] !== i) return `<td class="${k}">${hhmm(v)}</td>`;
+        const r = rtOf(c.id), prev = Math.round(v + (r.ritardo || 0) / 60);
+        return `<td class="next ${k}" title="Prossima fermata della corsa (tempo reale): arrivo previsto alle ${hhmm(prev)}">${hhmm(v)}</td>`;
       }).join("") + `</tr>`;
   }).join("");
 
@@ -1328,6 +1337,7 @@ function renderLine() {
 
 function drawTrip(c) {
   tripLayer.clearLayers();
+  drawNext();
   if (!state.trip || !c) return;
   const l = byId[state.line];
   const pts = shapePts(c.shape);
@@ -1514,7 +1524,9 @@ function updateVehicles() {
           veh.layer.addLayer(mk); veh.markers.set(c.id, mk);
         } else mk.setLatLng(b.ll);
         mk.getElement()?.classList.toggle("live", !!inv);
-        mk.setTooltipContent(`<b>Linea ${esc(l.n)}</b> → ${esc(t.titolo)}<br>prossima fermata: ${esc(STOPS[b.next][1])} (${hhmm(Math.round(b.at + dm) % 1440)})` +
+        const ni = inv ? rtNextRow(c) : null;  // prossima fermata secondo il tempo reale, se nota
+        const nf = ni != null ? t.fermate[ni] : b.next, na = ni != null ? c.o[ni] : b.at;
+        mk.setTooltipContent(`<b>Linea ${esc(l.n)}</b> → ${esc(t.titolo)}<br>prossima fermata: ${esc(STOPS[nf][1])} (${hhmm(Math.round(na + dm) % 1440)})` +
           (inv ? `<br>tempo reale: ${rtTesto(r)}` : live ? "<br>posizione stimata dagli orari" : ""));
       });
     });
@@ -1560,10 +1572,39 @@ $("#vehPlay").addEventListener("click", () => {
 /* ---------- tempo reale: ritardi delle corse di oggi dal proxy delle API Astral ---------- */
 // indirizzo del proxy (impostato in build_data.py); vuoto = sito con i soli orari programmati
 const REALTIME = /*REALTIME*/"";
-const rt = { trips: new Map(), at: null, ok: false };
+const rt = { trips: new Map(), at: null, ok: false, firma: "" };
 const rtLive = () => rt.ok && state.day === ymd(new Date());
 const rtOf = id => rtLive() ? rt.trips.get(id) : null;
 const rtMin = r => Math.round((r.ritardo || 0) / 60);
+// riga del quadro della prossima fermata della corsa: "prossima" conta da 0 le fermate servite dalla corsa
+function rtNextRow(c) {
+  const r = rtOf(c.id);
+  if (!r || r.stato !== "IN_SERVICE" || r.prossima == null) return null;
+  let n = -1;
+  for (let i = 0; i < c.o.length; i++) if (c.o[i] != null && ++n === r.prossima) return i;
+  return null;
+}
+// firma dei dati in tempo reale del quadro mostrato: se non cambia, il quadro non si ridisegna
+const rtFirma = t => t.corse.map(c => { const r = rtOf(c.id); return r ? `${r.stato}${r.ritardo}/${r.prossima}` : ""; }).join("|");
+function quadroAttuale() {
+  const l = state.line && byId[state.line];
+  if (!l) return null;
+  const tabs = l.tab.filter(t => t.svc === state.svc);
+  return tabs.find(x => x.dir === state.dir) || tabs[0];
+}
+// cerchio verde sulla prossima fermata della corsa selezionata
+const nextLayer = L.layerGroup().addTo(map);
+function drawNext() {
+  nextLayer.clearLayers();
+  const t = quadroAttuale(), c = t && state.trip && t.corse.find(x => x.id === state.trip);
+  const i = c && rtNextRow(c);
+  if (i == null) return;
+  const st = STOPS[t.fermate[i]], r = rtOf(c.id);
+  nextLayer.addLayer(L.circleMarker([st[3], st[4]], { radius: 13, color: "#1f7a3a", weight: 4, fillColor: "#1f7a3a", fillOpacity: .2, interactive: false }));
+  nextLayer.addLayer(L.marker([st[3], st[4]], { opacity: 0, keyboard: false, interactive: false })
+    .bindTooltip(`Prossima fermata: <b>${esc(st[1])}</b><br>arrivo previsto ${hhmm(Math.round(c.o[i] + (r.ritardo || 0) / 60))} (tempo reale)`,
+      { permanent: true, direction: "top", offset: [0, -12] }));
+}
 const oraDi = iso => new Date(iso).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 function rtTesto(r) {
   const d = rtMin(r);
@@ -1581,6 +1622,14 @@ function rtNote() {
   return ` Sotto il numero delle corse in viaggio: ritardo (+) o anticipo (−) in minuti, in tempo reale (aggiornato alle ${oraDi(rt.at)}).`;
 }
 function rtRefresh() {
+  // quadro orario aperto: si ridisegna solo se i suoi dati sono cambiati, mantenendo lo scorrimento della tabella
+  const t = quadroAttuale();
+  if (t && rtFirma(t) !== rt.firma) {
+    const w = document.querySelector(".tt-wrap"), sx = w ? w.scrollLeft : 0, sy = w ? w.scrollTop : 0;
+    renderLine();
+    const w2 = document.querySelector(".tt-wrap"); if (w2) { w2.scrollLeft = sx; w2.scrollTop = sy; }
+  }
+  drawNext();
   document.querySelectorAll("[data-rt]").forEach(el => { el.innerHTML = rtBadge(rtOf(el.dataset.rt)); });
   document.querySelectorAll("[data-rtnote]").forEach(el => { el.textContent = rtNote(); });
   if (veh.on && veh.live) vehNow();

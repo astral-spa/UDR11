@@ -25,7 +25,10 @@ Grafica e funzioni sono le stesse dei siti delle altre UdR (base: UdR 5).
   delle corse. Nel quadro orario sotto il numero delle corse in viaggio compare il ritardo (+) o l'anticipo (−) in
   minuti; nelle partenze di una fermata il ritardo accanto all'orario; con **Bus in viaggio** → *Adesso* le corse con
   dati reali sono posizionate spostando l'orario del ritardo e hanno il bordo verde, le altre restano stimate dagli
-  orari. Le corse si abbinano con il `trip_id` del GTFS. Se il proxy non risponde il sito mostra solo gli orari;
+  orari. La **prossima fermata** di ogni corsa in viaggio (`nextStopIndex` delle API, contato da 0 sulle fermate
+  della corsa) è evidenziata in verde nel quadro orario (la riga compare anche con «solo fermate principali») e,
+  selezionando la corsa, con un cerchio verde sulla mappa; il riquadro del bus la indica con l'arrivo previsto.
+  Le corse si abbinano con il `trip_id` del GTFS. Se il proxy non risponde il sito mostra solo gli orari;
   con `REALTIME` vuoto il tempo reale è spento.
 - Orari sempre nel formato **hh:mm**: gli orari del GTFS con i secondi sono troncati al minuto.
 
