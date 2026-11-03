@@ -1444,7 +1444,7 @@ $("#vicino").addEventListener("click", () => {
     const near = STOPS.map((s, i) => [i, distKm(la, lo, s[3], s[4])]).filter(([i]) => stopUse[i].length)
       .sort((a, b) => a[1] - b[1]).slice(0, 6);
     meLayer.clearLayers();
-    L.circle([la, lo], { radius: accuracy, color: "#1a73e8", weight: 1, fillOpacity: .08, interactive: false }).addTo(meLayer);
+    L.circle([la, lo], { renderer, radius: accuracy, color: "#1a73e8", weight: 1, fillOpacity: .08, interactive: false }).addTo(meLayer);
     const m = L.marker([la, lo], { icon: L.divIcon({ className: "me-ico", iconSize: [16, 16] }), keyboard: false }).addTo(meLayer);
     const box = document.createElement("div");
     box.className = "pop";
@@ -1650,7 +1650,7 @@ function drawNext() {
   if (i == null) return;
   const st = STOPS[t.fermate[i]], r = rtOf(c.id);
   // etichetta solo al passaggio del mouse: un'etichetta fissa coprirebbe il bus (le etichette stanno sopra i marcatori)
-  nextLayer.addLayer(L.circleMarker([st[3], st[4]], { radius: 13, color: "#1f7a3a", weight: 4, fillColor: "#1f7a3a", fillOpacity: .2 })
+  nextLayer.addLayer(L.circleMarker([st[3], st[4]], { renderer, radius: 13, color: "#1f7a3a", weight: 4, fillColor: "#1f7a3a", fillOpacity: .2 })
     .bindTooltip(`Prossima fermata: <b>${esc(st[1])}</b> · arrivo previsto ${hhmm(Math.round(c.o[i] + (r.ritardo || 0) / 60))} (tempo reale)`,
       { direction: "top", offset: [0, -12] }));
 }
