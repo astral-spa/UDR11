@@ -21,7 +21,7 @@ Il codice è in `worker.js`; non contiene segreti, per cui può stare anche in u
    |--------|-------------------|------------------------------------------|
    | Secret | `CLIENT_ID`       | il client id delle API Astral            |
    | Secret | `CLIENT_SECRET`   | il client secret delle API Astral        |
-   | Text   | `ALLOWED_ORIGINS` | `https://astral-spa.github.io`           |
+   | Text   | `ALLOWED_ORIGINS` | `https://astral-spa.github.io,https://*.astralspa.it` |
    | Text   | `DEBUG`           | `1` (solo per la configurazione)         |
    | Text   | `AGENCY_ID`       | il codice agenzia dell'UdR (punto 5)     |
 
@@ -47,6 +47,9 @@ per ora arrivano vuoti: il sito usa il ritardo della corsa.
 Lo stesso Worker può servire anche le altre UdR (per esempio `UdR10AutolineeTroiani`, `UdR2AutoserviziTroiani`,
 `UdR7AutoserviziTroiani`, `BusInternationalService`): basta aggiungerne il codice in `AGENCY_ID`, separato da
 virgola, e `REALTIME` nel loro `build_data.py`.
+
+Con un dominio proprio (per esempio `https://udr7.astralspa.it`) il sito deve essere ammesso in `ALLOWED_ORIGINS`:
+`https://*.astralspa.it` vale per tutti i sottodomini di astralspa.it.
 
 ## Messaggi di errore
 

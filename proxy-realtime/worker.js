@@ -14,10 +14,11 @@
 // Variabili (Settings → Variables and Secrets del Worker):
 //   CLIENT_ID, CLIENT_SECRET  secret: credenziali OAuth2 delle API (flusso client credentials)
 //   AGENCY_ID                 codice agenzia dell'UdR (uno o più, separati da virgola): obbligatorio per /corse
-//   ALLOWED_ORIGINS           siti che possono leggere i dati, separati da virgola (es. https://astral-spa.github.io)
+//   ALLOWED_ORIGINS           siti che possono leggere i dati, separati da virgola; "https://*.astralspa.it" vale per
+//                             tutti i sottodomini (es. https://astral-spa.github.io,https://*.astralspa.it)
 //   DEBUG                     1 = attiva /agenzie e /prova, da usare durante la configurazione e poi togliere
 
-const VERSIONE = "2026-11-03c";
+const VERSIONE = "2026-11-10";
 const HOST = "https://tpl-admin.astralspa.it";
 const CACHE_SEC = 20;          // il sito interroga spesso: le API Astral al massimo una volta ogni 20 secondi
 const PAGE_SIZE = 500;
@@ -205,8 +206,16 @@ function corsHeaders(request, env) {
   const origin = request.headers.get("Origin") || "";
   const ammessi = (env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
   const h = { "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Max-Age": "86400", Vary: "Origin" };
-  if (ammessi.includes(origin)) h["Access-Control-Allow-Origin"] = origin;
+  if (ammessi.some(a => origineAmmessa(origin, a))) h["Access-Control-Allow-Origin"] = origin;
   return h;
+}
+
+function origineAmmessa(origin, voce) {
+  // "https://*.astralspa.it" ammette https://udr7.astralspa.it ecc. (un solo livello, solo quello schema)
+  const m = voce.match(/^(https?:\/\/)\*\.(.+)$/);
+  if (!m) return origin === voce;
+  return origin.startsWith(m[1]) && /^[a-z0-9-]+$/i.test(origin.slice(m[1].length, -(m[2].length + 1))) &&
+    origin.endsWith("." + m[2]);
 }
 
 function json(dati, status, headers = {}) {

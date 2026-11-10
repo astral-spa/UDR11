@@ -8,5 +8,5 @@ compatibility_date = "2026-10-01"
 
 [vars]
 AGENCY_ID = ""            # codice agenzia dell'UdR (vedi /agenzie con DEBUG = "1")
-ALLOWED_ORIGINS = "https://astral-spa.github.io"
+ALLOWED_ORIGINS = "https://astral-spa.github.io,https://*.astralspa.it"
 DEBUG = "0"
