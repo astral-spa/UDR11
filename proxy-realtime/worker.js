@@ -18,7 +18,7 @@
 //                             tutti i sottodomini (es. https://astral-spa.github.io,https://*.astralspa.it)
 //   DEBUG                     1 = attiva /agenzie e /prova, da usare durante la configurazione e poi togliere
 
-const VERSIONE = "2026-11-10";
+const VERSIONE = "2026-11-10b";
 const HOST = "https://tpl-admin.astralspa.it";
 const CACHE_SEC = 20;          // il sito interroga spesso: le API Astral al massimo una volta ogni 20 secondi
 const PAGE_SIZE = 500;
@@ -48,7 +48,8 @@ export default {
       if (path === "/agenzie") return json(await elencoAgenzie(env), 200, cors);
       if (path === "/prova") return json(await prova(env, new URL(request.url).searchParams.get("agenzia")), 200, cors);
       if (path === "/diagnosi") return json(await diagnosi(env), 200, cors);
-      return json({ errore: "indirizzo sconosciuto", versione: VERSIONE, indirizzi: ["/corse", "/agenzie", "/prova", "/diagnosi"] }, 404, cors);
+      return json({ errore: "indirizzo sconosciuto", versione: VERSIONE, indirizzi: ["/corse", "/agenzie", "/prova", "/diagnosi"],
+        siti_ammessi: sitiAmmessi(env) }, 404, cors);
     } catch (e) {
       return json({ errore: String(e.message || e), versione: VERSIONE }, 502, cors);
     }
@@ -204,10 +205,17 @@ function offsetRoma(data) {
 
 function corsHeaders(request, env) {
   const origin = request.headers.get("Origin") || "";
-  const ammessi = (env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+  const ammessi = sitiAmmessi(env);
   const h = { "Access-Control-Allow-Methods": "GET, OPTIONS", "Access-Control-Max-Age": "86400", Vary: "Origin" };
   if (ammessi.some(a => origineAmmessa(origin, a))) h["Access-Control-Allow-Origin"] = origin;
   return h;
+}
+
+function sitiAmmessi(env) {
+  // tollerante a come si scrive il valore nel pannello: spazi, virgolette, asterischi tipografici, barra finale
+  return (env.ALLOWED_ORIGINS || "").split(/[,;\s]+/)
+    .map(s => s.trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, "").replace(/[∗＊⁎]/g, "*").replace(/\/+$/, "").toLowerCase())
+    .filter(Boolean);
 }
 
 function origineAmmessa(origin, voce) {
