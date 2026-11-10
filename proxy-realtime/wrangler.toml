@@ -7,6 +7,7 @@ main = "worker.js"
 compatibility_date = "2026-10-01"
 
 [vars]
-AGENCY_ID = ""            # codice agenzia dell'UdR (vedi /agenzie con DEBUG = "1")
+# agenzie delle UdR servite (vedi /agenzie con DEBUG = "1"); deve restare uguale a quanto impostato nel pannello
+AGENCY_ID = "UdR11AirCampania,UdR10AutolineeTroiani,UdR2AutoserviziTroiani,BusInternationalService,UdR7AutoserviziTroiani,CSCMobilitaScarl"
 ALLOWED_ORIGINS = "https://astral-spa.github.io,https://*.astralspa.it"
 DEBUG = "0"
