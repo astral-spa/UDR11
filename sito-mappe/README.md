@@ -61,6 +61,8 @@ Aprendo il file dal computer non si conta nulla. Il codice è in fondo a `templa
 - `template.html`: grafica e funzioni del sito, con i segnaposto per i dati.
 - `logo.png`: logo Astral Infomobilità al centro della testata (incluso nella pagina; per cambiarlo basta
   sostituire il file).
+- `icona.png`: icona del sito (logo Unità di Rete, 180×180) per la scheda del browser e la schermata Home del
+  telefono, inclusa nella pagina; per cambiarla basta sostituire il file.
 - `build_data.py`: legge il GTFS e scrive il sito completo in `sito-mappe/index.html` (pubblicato online) e
   `index.html` nella radice del repo.
 
