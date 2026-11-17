@@ -22,6 +22,10 @@ Grafica e funzioni sono le stesse dei siti delle altre UdR (base: UdR 5).
 - **Quadro orario** per calendario e direzione, con fermate principali o tutte; clic su una corsa per vederla
   sulla mappa, clic su una fermata per le sue partenze del giorno.
 - **Vicino a me** e **Bus in viaggio** (posizioni stimate dagli orari programmati, non in tempo reale).
+- **Corse preferite**: cliccando il numero di una corsa nel quadro orario compare «☆ Aggiungi ai preferiti»; le corse
+  salvate sono in cima all'elenco («★ Le mie corse»), con il tempo reale se sono in viaggio, e si aprono con un clic.
+  Restano nel browser di chi usa il sito (nessun account, non passano da un dispositivo all'altro); con un GTFS nuovo
+  che rinumera le corse si ritrovano per linea, direzione e orario di partenza.
 - **Tempo reale** (solo per il giorno di oggi, sul sito online): ogni 30 secondi, e solo mentre la pagina è in primo
   piano, il sito legge dal proxy (`REALTIME` in testa a `build_data.py`, codice in `proxy-realtime/`) ritardo e stato
   delle corse. Nel quadro orario sotto il numero delle corse in viaggio compare il ritardo (+) o l'anticipo (−) in
