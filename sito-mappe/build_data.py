@@ -532,7 +532,12 @@ def make_tab(svc, d, ts, st_by_trip, stops, stop_idx, route_lines, comuni, timep
             o[i] = minutes(r["departure_time"] or r["arrival_time"])
             if timepoint and r.get("timepoint") == "1":
                 princ[i] = 1
-        corse.append({"id": t.get("trip_short_name") or t["trip_id"], "shape": t["shape_id"], "o": o})
+        # id = trip_id del GTFS, sempre unico (in alcuni GTFS il trip_short_name è il codice del percorso, ripetuto
+        # su tante corse); il trip_short_name, se c'è, si mostra come nome della corsa
+        corsa = {"id": t["trip_id"], "shape": t["shape_id"], "o": o}
+        if t.get("trip_short_name") and t["trip_short_name"] != t["trip_id"]:
+            corsa["sn"] = t["trip_short_name"]
+        corse.append(corsa)
 
     # fermate principali: quelle con orario garantito del GTFS (timepoint = 1); se il GTFS non le
     # distingue, la prima fermata in ogni comune, i nodi di interscambio e una ogni PRINC_OGNI_MIN minuti
