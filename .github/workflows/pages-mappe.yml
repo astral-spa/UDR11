@@ -38,5 +38,11 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+      # a volte GitHub non trova subito l'artefatto appena caricato: si riprova dopo una breve attesa
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+      - if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
