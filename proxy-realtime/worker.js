@@ -18,7 +18,7 @@
 //                             tutti i sottodomini (es. https://astral-spa.github.io,https://*.astralspa.it)
 //   DEBUG                     1 = attiva /agenzie e /prova, da usare durante la configurazione e poi togliere
 
-const VERSIONE = "2026-11-10b";
+const VERSIONE = "2026-11-25a";
 const HOST = "https://tpl-admin.astralspa.it";
 const CACHE_SEC = 20;          // il sito interroga spesso: le API Astral al massimo una volta ogni 20 secondi
 const PAGE_SIZE = 500;
@@ -89,6 +89,8 @@ async function prova(env, agenzia) {
     id: t.id, agencyId: t.agencyId, routeId: t.routeId, tripId: t.tripId, originalTripId: t.originalTripId,
     status: t.status, serviceDate: t.serviceDate, delay: t.delay, narrative: t.narrative,
     fermate: (t.stops || []).slice(0, 3).map(s => ({ id: s.id, title: s.title })),
+    campi: Object.keys(t),                                    // tutti i campi della corsa nelle API
+    veicolo: Object.fromEntries(Object.entries(t).filter(([k]) => /vehic|veic|plate|targ|bus|fleet|mezz/i.test(k))),
   }));
 }
 
