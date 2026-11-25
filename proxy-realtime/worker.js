@@ -18,7 +18,7 @@
 //                             tutti i sottodomini (es. https://astral-spa.github.io,https://*.astralspa.it)
 //   DEBUG                     1 = attiva /agenzie e /prova, da usare durante la configurazione e poi togliere
 
-const VERSIONE = "2026-11-25a";
+const VERSIONE = "2026-11-25b";
 const HOST = "https://tpl-admin.astralspa.it";
 const CACHE_SEC = 20;          // il sito interroga spesso: le API Astral al massimo una volta ogni 20 secondi
 const PAGE_SIZE = 500;
@@ -46,7 +46,7 @@ export default {
         return json({ errore: "indirizzo di configurazione disattivato (variabile DEBUG)" }, 403, cors);
       }
       if (path === "/agenzie") return json(await elencoAgenzie(env), 200, cors);
-      if (path === "/prova") return json(await prova(env, new URL(request.url).searchParams.get("agenzia")), 200, cors);
+      if (path === "/prova") return json(await prova(env, new URL(request.url).searchParams), 200, cors);
       if (path === "/diagnosi") return json(await diagnosi(env), 200, cors);
       return json({ errore: "indirizzo sconosciuto", versione: VERSIONE, indirizzi: ["/corse", "/agenzie", "/prova", "/diagnosi"],
         siti_ammessi: sitiAmmessi(env) }, 404, cors);
@@ -83,8 +83,12 @@ async function corse(request, env, ctx, cors) {
   return withHeaders(risposta, cors);
 }
 
-async function prova(env, agenzia) {
-  const trips = await tuttiITrip(env, agenzia ? { agencyId: [agenzia] } : {}, 1, 5);
+async function prova(env, q) {
+  // ?agenzia=CODICE per provare un codice, ?stato=IN_SERVICE per vedere solo le corse in servizio
+  const filtri = {};
+  if (q.get("agenzia")) filtri.agencyId = [q.get("agenzia")];
+  if (q.get("stato")) filtri.status = [q.get("stato")];
+  const trips = await tuttiITrip(env, filtri, 1, 5);
   return trips.map(t => ({
     id: t.id, agencyId: t.agencyId, routeId: t.routeId, tripId: t.tripId, originalTripId: t.originalTripId,
     status: t.status, serviceDate: t.serviceDate, delay: t.delay, narrative: t.narrative,
