@@ -2,7 +2,7 @@
 //
 // Tiene le credenziali delle API Astral (secret CLIENT_ID e CLIENT_SECRET di Cloudflare, mai nel sito),
 // chiede le corse di oggi a /realtime/api/transit/tripServiceRecord/trips e restituisce al sito solo
-// i dati che servono: corsa del GTFS, stato, ritardo e passaggi alle fermate. Niente veicoli né dati interni.
+// i dati che servono: corsa del GTFS, stato, ritardo, passaggi alle fermate e targa del mezzo in servizio.
 //
 // Indirizzi (tutti GET):
 //   /corse     corse di oggi in attesa o in servizio, per il sito (rinnovate al massimo ogni CACHE_SEC secondi)
@@ -18,7 +18,7 @@
 //                             tutti i sottodomini (es. https://astral-spa.github.io,https://*.astralspa.it)
 //   DEBUG                     1 = attiva /agenzie e /prova, da usare durante la configurazione e poi togliere
 
-const VERSIONE = "2026-11-25b";
+const VERSIONE = "2026-11-25c";
 const HOST = "https://tpl-admin.astralspa.it";
 const CACHE_SEC = 20;          // il sito interroga spesso: le API Astral al massimo una volta ogni 20 secondi
 const PAGE_SIZE = 500;
@@ -76,6 +76,8 @@ async function corse(request, env, ctx, cors) {
       segnale: t.lastSignal,                       // ultimo segnale del veicolo
       fermate: (t.stops || []).map(s => [s.delay ?? null, s.expectedArrival ?? null, s.visitedOn ?? null]),
       soppresse: t.suppressedStops || [],
+      // targa del mezzo che fa la corsa (vehicleId nelle API), solo per le corse in servizio
+      targa: t.status === "IN_SERVICE" ? (t.vehicleId || t.declaredVehicleId || null) : null,
     })),
   };
   const risposta = json(dati, 200, { "Cache-Control": `public, max-age=${CACHE_SEC}` });
