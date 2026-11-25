@@ -3,7 +3,8 @@
 Il sito delle UdR è una pagina che gira nel browser: chi la ispeziona vede tutto. Le credenziali delle API
 Astral (`client_id` e `client_secret`) quindi **non stanno nel sito**, ma in questo piccolo servizio su
 Cloudflare. Il proxy ottiene il token, chiede le corse di oggi alle API e restituisce al sito solo corsa del GTFS,
-stato, ritardo e passaggi alle fermate (niente veicoli né dati interni). Risponde a tutti i visitatori con lo
+stato, ritardo, passaggi alle fermate e, per le corse in servizio, la targa del mezzo (campo `vehicleId`
+delle API); nessun altro dato dei veicoli o interno. Risponde a tutti i visitatori con lo
 stesso dato, rinnovato al massimo ogni 20 secondi: le API Astral ricevono poche richieste qualunque sia il traffico.
 
 Il codice è in `worker.js`; non contiene segreti, per cui può stare anche in un repository pubblico.

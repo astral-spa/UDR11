@@ -2,7 +2,7 @@
 //
 // Tiene le credenziali delle API Astral (secret CLIENT_ID e CLIENT_SECRET di Cloudflare, mai nel sito),
 // chiede le corse di oggi a /realtime/api/transit/tripServiceRecord/trips e restituisce al sito solo
-// i dati che servono: corsa del GTFS, stato, ritardo e passaggi alle fermate. Niente veicoli né dati interni.
+// i dati che servono: corsa del GTFS, stato, ritardo, passaggi alle fermate e targa del mezzo in servizio.
 //
 // Indirizzi (tutti GET):
 //   /corse     corse di oggi in attesa o in servizio, per il sito (rinnovate al massimo ogni CACHE_SEC secondi)
@@ -18,7 +18,7 @@
 //                             tutti i sottodomini (es. https://astral-spa.github.io,https://*.astralspa.it)
 //   DEBUG                     1 = attiva /agenzie e /prova, da usare durante la configurazione e poi togliere
 
-const VERSIONE = "2026-11-10b";
+const VERSIONE = "2026-11-25c";
 const HOST = "https://tpl-admin.astralspa.it";
 const CACHE_SEC = 20;          // il sito interroga spesso: le API Astral al massimo una volta ogni 20 secondi
 const PAGE_SIZE = 500;
@@ -46,7 +46,7 @@ export default {
         return json({ errore: "indirizzo di configurazione disattivato (variabile DEBUG)" }, 403, cors);
       }
       if (path === "/agenzie") return json(await elencoAgenzie(env), 200, cors);
-      if (path === "/prova") return json(await prova(env, new URL(request.url).searchParams.get("agenzia")), 200, cors);
+      if (path === "/prova") return json(await prova(env, new URL(request.url).searchParams), 200, cors);
       if (path === "/diagnosi") return json(await diagnosi(env), 200, cors);
       return json({ errore: "indirizzo sconosciuto", versione: VERSIONE, indirizzi: ["/corse", "/agenzie", "/prova", "/diagnosi"],
         siti_ammessi: sitiAmmessi(env) }, 404, cors);
@@ -76,6 +76,8 @@ async function corse(request, env, ctx, cors) {
       segnale: t.lastSignal,                       // ultimo segnale del veicolo
       fermate: (t.stops || []).map(s => [s.delay ?? null, s.expectedArrival ?? null, s.visitedOn ?? null]),
       soppresse: t.suppressedStops || [],
+      // targa del mezzo che fa la corsa (vehicleId nelle API), solo per le corse in servizio
+      targa: t.status === "IN_SERVICE" ? (t.vehicleId || t.declaredVehicleId || null) : null,
     })),
   };
   const risposta = json(dati, 200, { "Cache-Control": `public, max-age=${CACHE_SEC}` });
@@ -83,12 +85,18 @@ async function corse(request, env, ctx, cors) {
   return withHeaders(risposta, cors);
 }
 
-async function prova(env, agenzia) {
-  const trips = await tuttiITrip(env, agenzia ? { agencyId: [agenzia] } : {}, 1, 5);
+async function prova(env, q) {
+  // ?agenzia=CODICE per provare un codice, ?stato=IN_SERVICE per vedere solo le corse in servizio
+  const filtri = {};
+  if (q.get("agenzia")) filtri.agencyId = [q.get("agenzia")];
+  if (q.get("stato")) filtri.status = [q.get("stato")];
+  const trips = await tuttiITrip(env, filtri, 1, 5);
   return trips.map(t => ({
     id: t.id, agencyId: t.agencyId, routeId: t.routeId, tripId: t.tripId, originalTripId: t.originalTripId,
     status: t.status, serviceDate: t.serviceDate, delay: t.delay, narrative: t.narrative,
     fermate: (t.stops || []).slice(0, 3).map(s => ({ id: s.id, title: s.title })),
+    campi: Object.keys(t),                                    // tutti i campi della corsa nelle API
+    veicolo: Object.fromEntries(Object.entries(t).filter(([k]) => /vehic|veic|plate|targ|bus|fleet|mezz/i.test(k))),
   }));
 }
 
